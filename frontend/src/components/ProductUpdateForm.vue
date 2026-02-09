@@ -1,0 +1,334 @@
+<template>
+  <div class="overlay">
+    <div class="buy-card">
+
+      <h3 class="title">Update Product</h3>
+      <p class="subtitle">Product Details</p>
+      <p class="error-text" v-if="error.err">{{ error.err }}</p>
+      <p class="success-text" v-if="success">{{ success }}</p>
+
+      <form @submit.prevent="confirmUpdate">
+
+        <div class="field">
+          <span>Change Product Name</span>
+          <input
+            type="text"
+            v-model.lazy.trim="product.updatedName"
+            placeholder="Enter new name"
+            required
+            @blur="validProductName"
+          />
+          <p v-if="productNameError" class="error-text">{{ productNameError }}</p>
+        </div>
+
+        <div class="field">
+          <span>Change Price</span>
+          <input
+            type="number"
+            v-model.lazy.number="product.updatedPrice"
+            placeholder="Enter updated price"
+            required
+            @blur="validPrice"
+          />
+          <p v-if="priceError" class="error-text">{{ priceError }}</p>
+        </div>
+
+        <div class="field">
+          <span>Update Stocks</span>
+          <input
+            type="number"
+            v-model.lazy.number="product.updatedTotalStock"
+            @blur="validStock"
+            placeholder="Enter new stocks"
+            required
+          />
+          <p v-if="stockError" class="error-text">{{ stockError }}</p>
+        </div>
+
+        <div class="field">
+          <input
+            type="file"
+            accept="image/*"
+            @change="onImageChange"
+          />
+          <label>Select New Image</label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" :disabled="checkData()" class="primary-btn">
+            Update
+          </button>
+          <button type="button" class="cancel-btn" @click="goBack">
+            Cancel
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+</template>
+
+
+<script>
+// import axios from 'axios';
+import { api } from '@/utils/interceptor'; 
+
+export default{
+    name: 'ProductUpdateForm',
+    data(){
+        return{
+            product:{
+              updatedName:'',
+              updatedPrice:0,
+              updatedTotalStock:0,
+              newImage: null
+            },
+            productNameError:"",
+            priceError:"",
+            stockError: "",
+            error:{},
+            success: "",  
+        }
+    },
+    mounted(){
+      this.product.updatedName = this.productNameLabel;
+      this.product.updatedPrice = this.priceLabel;
+      this.product.updatedTotalStock = this.stockLabel;
+    },
+    computed:{
+      productId(){
+        return Number(this.$route.query.productId);
+      },
+      productNameLabel() {
+        return this.$route.query.productName
+      },
+      priceLabel() {
+        return  this.$route.query.price
+      },
+      stockLabel() {
+        return this.$route.query.quantity
+      },
+    },
+    methods:{
+      goBack(){
+        this.$router.push({name: 'ProductList'});
+    },
+    validProductName(){
+        const regex = /^[a-zA-Z0-9\s]{7,}$/;
+        console.log('validating product name');
+        if(!this.product.updatedName){
+          this.productNameError = 'product name is required';
+        } 
+        else if(this.product.updatedName.length < 7) {
+          this.productNameError = 'product name is too short min 7 characters';
+        }
+        else if(!regex.test(this.product.updatedName)) {
+          this.productNameError = 'product name only letters, numbers and spaces';
+        } else {
+          this.productNameError = "";
+        }
+      },
+    validPrice(){
+      if (!this.product.updatedPrice) {
+      this.priceError = 'Price is required';
+    } else if(this.product.updatedPrice <= 0){
+      this.priceError = 'Price cannot be zero or negative';
+      this.product.updatedPrice = 0; // optional reset
+    }
+    else {
+      this.priceError = '';
+    }
+    },
+    validStock(){
+      if (!this.product.updatedTotalStock) {
+        this.stockError = 'Stock is required';
+        this.product.updatedTotalStock = 0; // optional reset
+      } 
+      else if( this.product.updatedTotalStock <= 0){
+        this.stockError = 'Stock cannot be zero or negative';
+        this.product.updatedTotalStock = 0; // optional reset
+      }
+      else {
+        this.stockError = '';
+      }
+    },
+    checkData(){
+      if(this.productNameError || this.priceError || this.stockError){
+        return true;
+      }
+      return false;
+    },
+    onImageChange(event) {
+        const file = event.target.files[0]
+        this.product.image = file
+      },
+    async confirmUpdate(){
+        try {
+            const updatedProduct = {
+                id: this.productId,
+                productName: this.product.updatedName || undefined,
+                price: this.product.updatedPrice > 0? this.product.updatedPrice : undefined,
+                totalStock: this.product.updatedTotalStock >0? this.product.updatedTotalStock : undefined,
+                image: this.product.image || undefined
+            }
+            console.log('Update Product ', updatedProduct);
+            const response = await api.put('/inventory/update/', updatedProduct);
+
+            // const response = await axios.put('http://localhost:8080/inventory/update',updatedProduct,{
+            //     headers:{
+            //         Authorization: `Bearer ${localStorage.getItem('authTokens')}`
+            //     }
+            // });
+            console.log(response);
+            if(response){
+                this.success = "Product is Updated";
+                setTimeout(()=>{
+                  this.$router.push({name:'ProductList'})
+                },1500);
+            }
+        } catch (error) {
+            console.log(error.message);
+            this.error = { err : error.response.data.message || 'Update failed' };
+        }
+    }
+    
+    }
+}
+
+</script>
+
+
+<style scoped>
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.buy-card {
+  width: 380px;
+  background: #fff;
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #5f6368;
+  margin-bottom: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-bottom: 20px;
+  align-items: flex-start;
+}
+
+.field input {
+  width: 100%;
+  padding: 14px 12px;
+  font-size: 14px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  outline: none;
+  background: #fff;
+}
+
+.field input:focus {
+  border-color: #1a73e8;
+}
+
+.field label {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  background: #fff;
+  padding: 0 4px;
+  font-size: 14px;
+  color: #5f6368;
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: 0.2s ease;
+}
+
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label {
+  top: -6px;
+  font-size: 12px;
+  color: #1a73e8;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.primary-btn {
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  padding: 8px 22px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  background: #1558c0;
+}
+
+.primary-btn:disabled {
+  background: #c5bcbc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cancel-btn {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.cancel-btn:hover {
+  background: rgba(26, 115, 232, 0.08);
+}
+
+.error-text {
+  color: #b71c1c;
+  background: #fdecea;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.success-text {
+  color: #1b5e20;
+  background: #e8f5e9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+</style>
